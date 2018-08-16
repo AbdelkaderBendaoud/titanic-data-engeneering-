@@ -1,0 +1,131 @@
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+import unicodecsv
+
+titanic = pd.read_csv('C:\\Users\\NGSi\\Desktop\\titanic_data.csv')
+
+#invasigating the data 
+print(titanic.shape)
+
+titanic.head(20) 
+
+survivals = titanic.loc[titanic['Survived'] == 1].copy()
+
+#here i'm invasigating wich class survived the most 
+
+survivals.shape
+
+survivals.count()
+survivals.tail()
+# i notice there's some NaN in age colmns,why is that? , i will get to that later
+
+survivals_per_class = survivals.groupby(['Pclass']).count()
+
+print(survivals_per_class['Survived'])
+
+survivals_per_class['Survived'].hist()
+
+#looks like the lower class made it,and the rich of course , but why?? 
+titanic.Sex.isnull().sum() #no missing data great!
+
+men = titanic[titanic['Sex'] == 'male']
+
+women = titanic[titanic['Sex'] == 'female']
+
+men['Sex'].count() , women['Sex'].count()
+ 
+
+#just to see the balance between the sexes 
+
+survivals_by_sex = survivals.groupby(['Sex']).count()
+
+survivals_by_sex
+
+titanic.Cabin.isnull().sum() # i will leave this factor later 
+
+survivals_by_sex['Survived'].hist()
+
+#next by age
+
+titanic.Age.isnull().sum()
+
+#looks like we do have some missing data
+
+
+## for this problem i don't know how should i handle this , i can work with just the existing data but that would be not correct so, this what i will do:
+
+**i noticed that NaNs has a relation with sibsp and parch columns**:
+
+1- people with parch and sibSp must be old enough 
+
+2- people with parch and no  sibSp will be considered as kids (travelling with nanny) 
+
+3- people with  no parch and sibSp (husband and wife) or brothers , sisters
+
+4- people with no parch and no sibSp this, were alone 
+
+first i will handle the parch & sibsp columns
+
+print(survivals.Parch.isnull().sum()) #no missing data
+
+print(survivals.SibSp.isnull().sum()) #no missing data
+
+survival_by_familly = survivals.groupby(['SibSp','Parch']).count()
+
+survival_by_familly
+
+#ok , let's fill the data in age column based on my guess
+
+a = survival_by_familly.loc[(0,[0,1,2,3]),'Survived']
+b = survival_by_familly.loc[(1,[0,1,2,3,5]),'Survived']
+c = survival_by_familly.loc[(2,[0,1,2,3]),'Survived']
+d = survival_by_familly.loc[(3,[0,2]),'Survived']
+e = survival_by_familly.loc[(4,2),'Survived']
+
+print('survivals from a: ', a.sum() )
+print('survivals from b: ', b.sum() )
+print('survivals from c: ', c.sum() )
+print('survivals from d: ', d.sum() )
+print('survivals from e: ', e.sum() )
+
+
+**simple conclusion here: 'a': are the people who were alone or 'a': refers to no sibsp, they  made it the most , but the obivous thing here  is that  'a' are mostly kids (childs)** 
+
+**'b' and 'c' huband and wife or mother and father if sibsp = 1 and parch >= 1 , also made it , obivously saving the women and children first**
+
+**the rest were either big famillies who tried to save everybody and failed or the men who risked their lives for their famillies (women & children fisrt)**
+
+keep in mind the crew is totally ignored in this data set
+
+
+you can easily see that most Age  columns messing data have 0 in SibSp & parch, you can't tell for sure but i will use the fillna method to fill with random ages between 20 and 35 
+
+
+survivals.loc[((survivals.Name.str.contains('Miss')) & (survivals.Age.isnull())) , 'Age' ] = 23  
+survivals.loc[((survivals.Name.str.contains('Mr','Mrs')) & (survivals.Age.isnull())) , 'Age'] = 35
+
+survivals.Age.isnull().sum() # only 2 remaining 
+
+survivals[survivals['Age'].isna()]
+
+#looks like a duplicate , i'm just gonna drop one of them 
+
+survivals.loc[65, 'Age'] = 50 
+survivals = survivals.drop([709])
+
+survivals.Age.hist()
+
+normal thing that the younger passengers were more likely to survive
+
+survivals.Fare.isnull().sum()  #ok ! , great 
+
+#ok , after dealing with age column , the last factor is the Cabin column , historically we all know how the titanic went down , the people in the cabins in front were more likely not to survive , so
+
+survivals.Cabin.isnull().sum() # a lot of missing data
+
+survivals.loc[((survivals.Cabin.isnull()) & (survivals.Name.str.contains('Mrs , Mr'))) , 'Cabin'] = 'same one as sib'
+survivals.loc[survivals.Cabin.isnull()] = 'unknown cabin' 
+
+#ok ,, this is just a data engineering project  but i think the data is fanally ready for ML model 
